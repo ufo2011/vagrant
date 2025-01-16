@@ -1,12 +1,16 @@
-require "json"
-require "set"
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: BUSL-1.1
 
-require 'vagrant/util/scoped_hash_override'
+Vagrant.require "json"
+Vagrant.require "set"
+Vagrant.require 'vagrant/util/scoped_hash_override'
 
 module Vagrant
   module Action
     module Builtin
       module MixinSyncedFolders
+        autoload :Remote, "vagrant/action/builtin/remote/mixin_synced_folders"
+
         include Vagrant::Util::ScopedHashOverride
 
         # This goes over all the registered synced folder types and returns

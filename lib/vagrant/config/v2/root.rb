@@ -1,6 +1,9 @@
-require "set"
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: BUSL-1.1
 
-require "vagrant/config/v2/util"
+Vagrant.require "set"
+
+Vagrant.require "vagrant/config/v2/util"
 
 module Vagrant
   module Config
@@ -29,13 +32,14 @@ module Vagrant
           if config_klass
             # Instantiate the class and return the instance
             @keys[name] = config_klass.new
-            return @keys[name]
           else
             @logger.debug("missing key request name=#{name} loc=#{caller.first}")
             # Record access to a missing key as an error
             @missing_key_calls.add(name.to_s)
-            return DummyConfig.new
+            @keys[name] = DummyConfig.new
           end
+
+          @keys[name]
         end
 
         # Called to finalize this object just prior to it being used by

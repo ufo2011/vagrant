@@ -1,5 +1,21 @@
-require "log4r"
-require "vagrant/util/credential_scrubber"
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: BUSL-1.1
+
+# Load the shared helpers first to make the custom
+# require helper available.
+require "vagrant/shared_helpers"
+
+Vagrant.require "log4r"
+
+# Add patches to log4r to support trace level
+Vagrant.require "vagrant/patches/log4r"
+Vagrant.require "vagrant/patches/net-ssh"
+Vagrant.require "vagrant/patches/rubygems"
+
+# Set our log levels and include trace
+Vagrant.require 'log4r/configurator'
+Log4r::Configurator.custom_levels(*(["TRACE"] + Log4r::Log4rConfig::LogLevels))
+
 # Update the default formatter within the log4r library to ensure
 # sensitive values are being properly scrubbed from logger data
 class Log4r::BasicFormatter
@@ -9,10 +25,7 @@ class Log4r::BasicFormatter
   end
 end
 
-# Add our patches to net-ssh
-require "vagrant/patches/net-ssh"
-
-require "optparse"
+Vagrant.require "optparse"
 
 module Vagrant
   # This is a customized OptionParser for Vagrant plugins. It
@@ -36,33 +49,30 @@ module VagrantPlugins
   OptionParser = Vagrant::OptionParser
 end
 
-require "vagrant/shared_helpers"
-require "rubygems"
-require "vagrant/util"
-require "vagrant/plugin/manager"
+# Load in our helpers and utilities
+Vagrant.require "rubygems"
+Vagrant.require "vagrant/util"
+Vagrant.require "vagrant/plugin/manager"
 
 # Enable logging if it is requested. We do this before
 # anything else so that we can setup the output before
 # any logging occurs.
-if ENV["VAGRANT_LOG"] && ENV["VAGRANT_LOG"] != ""
-  # Require Log4r and define the levels we'll be using
-  require 'log4r/config'
-  Log4r.define_levels(*Log4r::Log4rConfig::LogLevels)
 
-  level = nil
-  begin
-    level = Log4r.const_get(ENV["VAGRANT_LOG"].upcase)
-  rescue NameError
-    # This means that the logging constant wasn't found,
-    # which is fine. We just keep `level` as `nil`. But
-    # we tell the user.
-    level = nil
+# NOTE: We must do this little hack to allow
+# rest-client to write using the `<<` operator.
+# See https://github.com/rest-client/rest-client/issues/34#issuecomment-290858
+# for more information
+class VagrantLogger < Log4r::Logger
+  def << msg
+    debug(msg.strip)
   end
+end
 
-  # Some constants, such as "true" resolve to booleans, so the
-  # above error checking doesn't catch it. This will check to make
-  # sure that the log level is an integer, as Log4r requires.
-  level = nil if !level.is_a?(Integer)
+if ENV["VAGRANT_LOG"] && ENV["VAGRANT_LOG"] != ""
+  level = Log4r::LNAMES.index(ENV["VAGRANT_LOG"].upcase)
+  if level.nil?
+    level = Log4r::LNAMES.index("FATAL")
+  end
 
   if !level
     # We directly write to stderr here because the VagrantError system
@@ -76,18 +86,17 @@ if ENV["VAGRANT_LOG"] && ENV["VAGRANT_LOG"] != ""
   # Set the logging level on all "vagrant" namespaced
   # logs as long as we have a valid level.
   if level
-    # NOTE: We must do this little hack to allow
-    # rest-client to write using the `<<` operator.
-    # See https://github.com/rest-client/rest-client/issues/34#issuecomment-290858
-    # for more information
-    class VagrantLogger < Log4r::Logger
-      def << msg
-        debug(msg.strip)
+    ["vagrant", "vagrantplugins"].each do |lname|
+      logger = VagrantLogger.new(lname)
+      if ENV["VAGRANT_LOG_FILE"] && ENV["VAGRANT_LOG_FILE"] != ""
+        logger.outputters = Log4r::FileOutputter.new("vagrant", filename: ENV["VAGRANT_LOG_FILE"])
+      else
+        logger.outputters = Log4r::Outputter.stderr
       end
+      logger.level = level
     end
-    logger = VagrantLogger.new("vagrant")
-    logger.outputters = Log4r::Outputter.stderr
-    logger.level = level
+    Log4r::RootLogger.instance.level = level
+
     base_formatter = Log4r::BasicFormatter.new
     if ENV["VAGRANT_LOG_TIMESTAMP"]
       base_formatter = Log4r::PatternFormatter.new(
@@ -97,23 +106,22 @@ if ENV["VAGRANT_LOG"] && ENV["VAGRANT_LOG"] != ""
     end
 
     Log4r::Outputter.stderr.formatter = Vagrant::Util::LoggingFormatter.new(base_formatter)
-    logger = nil
   end
 end
 
-require 'json'
-require 'pathname'
-require 'stringio'
+Vagrant.require 'json'
+Vagrant.require 'pathname'
+Vagrant.require 'stringio'
 
-require 'childprocess'
-require 'i18n'
+Vagrant.require 'childprocess'
+Vagrant.require 'i18n'
 
 # OpenSSL must be loaded here since when it is loaded via `autoload`
 # there are issues with ciphers not being properly loaded.
-require 'openssl'
+Vagrant.require 'openssl'
 
 # Always make the version available
-require 'vagrant/version'
+Vagrant.require 'vagrant/version'
 global_logger = Log4r::Logger.new("vagrant::global")
 Vagrant.global_logger = global_logger
 global_logger.info("Vagrant version: #{Vagrant::VERSION}")
@@ -124,10 +132,32 @@ ENV.each do |k, v|
   global_logger.info("#{k}=#{v.inspect}") if k.start_with?("VAGRANT_")
 end
 
+# If the vagrant_ssl library exists, a recent version
+# of openssl is in use and its needed to load all the
+# providers needed
+vagrant_ssl_locations = [
+  File.expand_path("vagrant/vagrant_ssl.so", __dir__),
+  File.expand_path("vagrant/vagrant_ssl.bundle", __dir__)
+]
+if vagrant_ssl_locations.any? { |f| File.exist?(f) }
+  global_logger.debug("vagrant ssl helper found for loading ssl providers")
+  begin
+    Vagrant.require "vagrant/vagrant_ssl"
+    Vagrant.vagrant_ssl_load
+    global_logger.debug("ssl providers successfully loaded")
+  rescue LoadError => err
+    global_logger.warn("failed to load ssl providers, attempting to continue (#{err})")
+  rescue => err
+    global_logger.warn("unexpected failure loading ssl providers, attempting to continue (#{err})")
+  end
+else
+  global_logger.warn("vagrant ssl helper was not found, continuing...")
+end
+
 # We need these components always so instead of an autoload we
 # just require them explicitly here.
-require "vagrant/plugin"
-require "vagrant/registry"
+Vagrant.require "vagrant/plugin"
+Vagrant.require "vagrant/registry"
 
 module Vagrant
   autoload :Action,         'vagrant/action'
@@ -176,6 +206,8 @@ module Vagrant
     c.register([:"2", :provisioner])  { Plugin::V2::Provisioner }
     c.register([:"2", :push])         { Plugin::V2::Push }
     c.register([:"2", :synced_folder]) { Plugin::V2::SyncedFolder }
+
+    c.register(:remote)               { Plugin::Remote::Plugin }
   end
 
   # Configure a Vagrant environment. The version specifies the version
@@ -202,7 +234,7 @@ module Vagrant
     end
 
     # Now check the plugin gem names
-    require "vagrant/plugin/manager"
+    Vagrant.require "vagrant/plugin/manager"
     Plugin::Manager.instance.plugin_installed?(name, version)
   end
 

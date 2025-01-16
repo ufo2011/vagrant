@@ -1,3 +1,6 @@
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: BUSL-1.1
+
 module Vagrant
   module Plugin
     module V2
@@ -45,6 +48,8 @@ module Vagrant
         end
 
         include CapabilityHost
+
+        autoload :Remote, "vagrant/plugin/v2/synced_folder/remote"
 
         # This is called early when the synced folder is set to determine
         # if this implementation can be used for this machine. This should

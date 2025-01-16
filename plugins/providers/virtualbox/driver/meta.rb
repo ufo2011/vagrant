@@ -1,3 +1,6 @@
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: BUSL-1.1
+
 require "forwardable"
 require "thread"
 
@@ -65,6 +68,8 @@ module VagrantPlugins
             "5.2" => Version_5_2,
             "6.0" => Version_6_0,
             "6.1" => Version_6_1,
+            "7.0" => Version_7_0,
+            "7.1" => Version_7_1,
           }
 
           if @@version.start_with?("4.2.14")
@@ -193,7 +198,11 @@ module VagrantPlugins
             end
           end
 
-          parts = output.split("_")
+          version_line = output.each_line.find do |line|
+            !line.start_with?("WARNING:")
+          end
+
+          parts = version_line.to_s.split("_")
           return nil if parts.empty?
           parts[0].split("r")[0]
         end

@@ -1,12 +1,15 @@
-require 'thread'
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: BUSL-1.1
 
-require 'childprocess'
-require 'log4r'
+Vagrant.require 'thread'
 
-require 'vagrant/util/io'
-require 'vagrant/util/platform'
-require 'vagrant/util/safe_chdir'
-require 'vagrant/util/which'
+Vagrant.require 'childprocess'
+Vagrant.require 'log4r'
+
+Vagrant.require 'vagrant/util/io'
+Vagrant.require 'vagrant/util/platform'
+Vagrant.require 'vagrant/util/safe_chdir'
+Vagrant.require 'vagrant/util/which'
 
 module Vagrant
   module Util
@@ -205,7 +208,7 @@ module Vagrant
               next if data.empty?
 
               io_name = r == stdout ? :stdout : :stderr
-              @logger.debug("#{io_name}: #{data.chomp}")
+              @logger.trace("#{io_name}: #{data.chomp}")
 
               io_data[io_name] += data
               yield io_name, data if block_given? && notify_table[io_name]
@@ -253,7 +256,7 @@ module Vagrant
           # Log it out and accumulate
           io_name = io == stdout ? :stdout : :stderr
           io_data[io_name] += extra_data
-          @logger.debug("#{io_name}: #{extra_data.chomp}")
+          @logger.trace("#{io_name}: #{extra_data.chomp}")
 
           # Yield to any listeners any remaining data
           yield io_name, extra_data if block_given? && notify_table[io_name]

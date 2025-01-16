@@ -1,6 +1,8 @@
-require "log4r"
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: BUSL-1.1
 
-require "vagrant/capability_host"
+Vagrant.require "log4r"
+Vagrant.require "vagrant/capability_host"
 
 module Vagrant
   # This class handles guest-OS specific interactions with a machine.
@@ -20,6 +22,8 @@ module Vagrant
   # guest OS specific operations.
   class Guest
     include CapabilityHost
+
+    autoload :Remote, "vagrant/guest/remote"
 
     def initialize(machine, guests, capabilities)
       @capabilities = capabilities

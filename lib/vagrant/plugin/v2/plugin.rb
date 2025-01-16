@@ -1,8 +1,9 @@
-require "set"
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: BUSL-1.1
 
-require "log4r"
-
-require "vagrant/plugin/v2/components"
+Vagrant.require "set"
+Vagrant.require "log4r"
+Vagrant.require "vagrant/plugin/v2/components"
 
 module Vagrant
   module Plugin
@@ -24,7 +25,26 @@ module Vagrant
         #
         # @return [V2::Manager]
         def self.manager
-          @manager ||= Manager.new
+          @manager ||= local_manager
+        end
+
+        def self.local_manager
+          @_manager ||= Manager.new
+        end
+
+        def self.remote_manager
+          @_remote_manager ||= Remote::Manager.new(local_manager)
+        end
+
+        def self.enable_remote_manager(client, core_client: nil)
+          Remote::Manager.client = client
+          Remote::Manager.core_client = core_client
+          @manager = remote_manager
+        end
+
+        def self.disable_remote_manager
+          Remote::Manager.client = nil
+          @manager = local_manager
         end
 
         # Returns the {Components} for this plugin.
@@ -270,7 +290,7 @@ module Vagrant
         protected
 
         # Sentinel value denoting that a value has not been set.
-        UNSET_VALUE = Object.new
+        UNSET_VALUE = :__UNSET__VALUE__
 
         # Helper method that will set a value if a value is given, or otherwise
         # return the already set value.

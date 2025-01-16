@@ -1,3 +1,6 @@
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: BUSL-1.1
+
 require_relative "../../unix_mount_helpers"
 
 module VagrantPlugins
@@ -46,6 +49,7 @@ module VagrantPlugins
         end
 
         def self.mount_name(machine, name, data)
+          candidate_ips = machine.env.host.capability(:configured_ip_addresses)
           data[:smb_host] ||= machine.guest.capability(
             :choose_addressable_ip_addr, candidate_ips)
           "//#{data[:smb_host]}/#{data[:smb_id]}"

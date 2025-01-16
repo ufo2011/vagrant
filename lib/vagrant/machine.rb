@@ -1,16 +1,20 @@
-require_relative "util/ssh"
-require_relative "action/builtin/mixin_synced_folders"
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: BUSL-1.1
 
-require "digest/md5"
-require "thread"
+require_relative "./util/ssh"
+require_relative "./action/builtin/mixin_synced_folders"
 
-require "log4r"
+Vagrant.require "digest/md5"
+Vagrant.require "thread"
+Vagrant.require "log4r"
 
 module Vagrant
   # This represents a machine that Vagrant manages. This provides a singular
   # API for querying the state and making state changes to the machine, which
   # is backed by any sort of provider (VirtualBox, VMware, etc.).
   class Machine
+    autoload :Remote, "vagrant/machine/remote"
+
     extend Vagrant::Action::Builtin::MixinSyncedFolders
 
     # The box that is backing this machine.
@@ -178,10 +182,6 @@ module Vagrant
 
       # Extra env keys are the remaining opts
       extra_env = opts.dup
-      # An environment is required for triggers to function properly. This is
-      # passed in specifically for the `#Action::Warden` class triggers. We call it
-      # `:trigger_env` instead of `env` in case it collides with an existing environment
-      extra_env[:trigger_env] = @env
 
       check_cwd # Warns the UI if the machine was last used on a different dir
 
@@ -325,6 +325,7 @@ module Vagrant
           entry.local_data_path = @env.local_data_path
           entry.name = @name.to_s
           entry.provider = @provider_name.to_s
+          entry.architecture = @architecture
           entry.state = "preparing"
           entry.vagrantfile_path = @env.root_path
           entry.vagrantfile_name = @env.vagrantfile_name
@@ -333,6 +334,7 @@ module Vagrant
             entry.extra_data["box"] = {
               "name"     => @box.name,
               "provider" => @box.provider.to_s,
+              "architecture" => @box.architecture,
               "version"  => @box.version.to_s,
             }
           end
@@ -499,8 +501,8 @@ module Vagrant
       if !info[:private_key_path] && !info[:password]
         if @config.ssh.private_key_path
           info[:private_key_path] = @config.ssh.private_key_path
-        elsif info[:keys_only]
-          info[:private_key_path] = @env.default_private_key_path
+        else
+          info[:private_key_path] = @env.default_private_key_paths
         end
       end
 
@@ -586,6 +588,7 @@ module Vagrant
         entry.extra_data["box"] = {
           "name"     => @box.name,
           "provider" => @box.provider.to_s,
+          "architecture" => @box.architecture,
           "version"  => @box.version.to_s,
         }
       end

@@ -1,4 +1,7 @@
-require "vagrant/capability_host"
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: BUSL-1.1
+
+Vagrant.require "vagrant/capability_host"
 
 module Vagrant
   # This class handles host-OS specific interactions. It is responsible for
@@ -8,6 +11,8 @@ module Vagrant
   # See {Guest} for more information on capabilities.
   class Host
     include CapabilityHost
+
+    autoload :Remote, "vagrant/host/remote"
 
     def initialize(host, hosts, capabilities, env)
       initialize_capabilities!(host, hosts, capabilities, env)

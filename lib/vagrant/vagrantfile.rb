@@ -1,5 +1,8 @@
-require "vagrant/util/template_renderer"
-require "log4r"
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: BUSL-1.1
+
+Vagrant.require "vagrant/util/template_renderer"
+Vagrant.require "log4r"
 
 module Vagrant
   # This class provides a way to load and access the contents
@@ -12,6 +15,8 @@ module Vagrant
   # loading the configuration of a specific machine/provider combo,
   # etc.
   class Vagrantfile
+    autoload :Remote, "vagrant/vagrantfile/remote"
+
     # This is the configuration loaded as-is given the loader and
     # keys to #initialize.
     attr_reader :config
@@ -81,7 +86,6 @@ module Vagrant
       return Machine.new(name, provider, provider_cls, provider_config,
         provider_options, config, data_path, box, env, self)
     end
-
     # Returns the configuration for a single machine.
     #
     # When loading a box Vagrantfile, it will be prepended to the
@@ -198,7 +202,7 @@ module Vagrant
 
         # Load the box Vagrantfile, if there is one
         if !config.vm.box.to_s.empty? && boxes
-          box = boxes.find(config.vm.box, box_formats, config.vm.box_version)
+          box = boxes.find(config.vm.box, box_formats, config.vm.box_version, config.vm.box_architecture)
           if box
             box_vagrantfile = find_vagrantfile(box.directory)
             if box_vagrantfile && !config.vm.ignore_box_vagrantfile

@@ -1,18 +1,29 @@
-require 'log4r'
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: BUSL-1.1
 
-require 'vagrant/action/hook'
-require 'vagrant/util/busy'
-require 'vagrant/util/experimental'
+Vagrant.require 'log4r'
+
+Vagrant.require 'vagrant/action/hook'
+Vagrant.require 'vagrant/util/busy'
+Vagrant.require 'vagrant/util/experimental'
 
 module Vagrant
   module Action
     class Runner
       @@reported_interrupt = false
 
+      # @param globals [Hash] variables for the env to be passed to the action
+      # @yieldreturn [Hash] lazy-loaded vars merged into the env before action run
       def initialize(globals=nil, &block)
         @globals      = globals || {}
         @lazy_globals = block
         @logger       = Log4r::Logger.new("vagrant::action::runner")
+      end
+
+      # @see PrimaryRunner
+      # @see Vagrant::Action::Builder#primary
+      def primary?
+        false
       end
 
       def run(callable_id, options=nil)
@@ -26,6 +37,10 @@ module Vagrant
         if !callable || !callable.respond_to?(:call)
           raise ArgumentError,
             "Argument to run must be a callable object or registered action."
+        end
+
+        if callable.is_a?(Builder)
+          callable.primary = self.primary?
         end
 
         # Create the initial environment with the options given

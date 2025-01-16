@@ -1,3 +1,6 @@
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: BUSL-1.1
+
 require_relative "../../../base"
 
 require Vagrant.source_root.join("plugins/pushes/local-exec/push")
@@ -121,6 +124,13 @@ describe VagrantPlugins::LocalExecPush::Push do
       expect { subject.execute! }.to raise_error { |e|
         expect(e).to be_a(SystemExit)
       }
+    end
+
+    it "uses subprocess when running in server mode, and does not exit" do
+      allow(Vagrant).to receive(:server_mode?).and_return(true)
+      result = double("result", exit_code: 0)
+      expect(Vagrant::Util::Subprocess).to receive(:execute).and_return(result)
+      expect { subject.execute! }.to_not raise_error
     end
   end
 end
